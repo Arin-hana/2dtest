@@ -473,7 +473,7 @@ Camera:
   far clip plane: 1000
   field of view: 60
   orthographic: 1
-  orthographic size: 3
+  orthographic size: 8
   m_Depth: -1
   m_CullingMask:
     serializedVersion: 2
@@ -511,7 +511,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1358512796}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ec9232a3e88962241b3b05aabc0ba22b, type: 3}
   m_Name: 
@@ -7163,7 +7163,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 96dd60eafe05bb143a422acb37ddf1ef, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  speed: 0.001
+  speed: 2
 --- !u!50 &1871228636
 Rigidbody2D:
   serializedVersion: 4
@@ -7178,7 +7178,7 @@ Rigidbody2D:
   m_UseAutoMass: 0
   m_Mass: 0.0001
   m_LinearDrag: 0
-  m_AngularDrag: 0.05
+  m_AngularDrag: 0.8
   m_GravityScale: 0
   m_Material: {fileID: 0}
   m_IncludeLayers:
