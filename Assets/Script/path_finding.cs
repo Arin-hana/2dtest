@@ -8,7 +8,7 @@ public class path_finding : MonoBehaviour
     private float checkDistance = 1f; // Distance to check for walls
     private GameObject self;
     private Vector2[] directions = { Vector2.up, Vector2.down, Vector2.left, Vector2.right };
-    public float speed = 0.001f;
+    public float speed = 5;
 
     void FixedUpdate()
     {
@@ -17,7 +17,7 @@ public class path_finding : MonoBehaviour
 
         Vector2 walkdirecton = directions[Random.Range(0, directions.Length)];
         
-        for(int i = 0; i <= Random.Range(1,10);i--){
+        for(int i = 0; i <= Random.Range(1,50);i++){
             if(i != 1){
                 if (!Theres_a_wall(walkdirecton))
                 {    
@@ -26,6 +26,9 @@ public class path_finding : MonoBehaviour
                 else{
                     walkdirecton = new Vector2(0,0);
                 }
+            }
+            else{
+                return;
             }
         }
     }
