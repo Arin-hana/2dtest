@@ -8,6 +8,7 @@ TagManager:
   - trigger1a
   - scene_manager
   - wall for camera
+  - node
   layers:
   - Default
   - TransparentFX
