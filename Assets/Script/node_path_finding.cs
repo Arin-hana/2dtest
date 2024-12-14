@@ -1,160 +1,127 @@
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
-using Unity.VisualScripting.ReorderableList.Element_Adder_Menu;
+using UnityEditor;
 using UnityEngine;
 
 public class node_path_finding : MonoBehaviour
 {
-    private GameObject[] nodes;
-    private GameObject self;
-    private Vector2[] directions = { new(0,1), new(0,-1), new(1,0), new(-1,0) };
-    private float checkRadius = 0.2f; // Size of the detection area
-    private float checkDistance = 0.4f; // Distance to check for walls
-    private float speed = 3f; // Movement speed
-    private LayerMask wall; // LayerMask to identify walls
-    private Vector2 move;
-    private Vector2 direction;
-    private Rigidbody2D hitbox;
-    private Queue<Vector2> next_steps;
-    private GameObject left_behind;
-    private bool walking = false;
-    private bool thinking = false;
+    private GameObject[] points;
+    private Transform self;
+    private Transform end_of_path;
+    private Transform first_step;
+    private float speed = 50f;
+    bool pushing_trough = false;
+    private void Start(){
+        points = GameObject.FindGameObjectsWithTag("node");
+        //get any gameobject that have the tag node
 
-    private void Start()
-    {
-        self = this.gameObject;
-        hitbox = GetComponent<Rigidbody2D>();
-        wall = LayerMask.GetMask("the fucking wall");   
-        nodes = GameObject.FindGameObjectsWithTag("node");
-        next_steps = new Queue<Vector2>();
-        Path();
-    }
-
-    private void Path(){
-        if (nodes.Length == 0){
-            return;
-        }
-
-        // compare self position to node
-        // find the closest node
-        var closestNode = nodes
-            .Where(node => node != left_behind)
-            .OrderBy(node => Vector2.Distance(node.transform.position, self.transform.position))
-            .FirstOrDefault();
-        
-        if (closestNode == null)
-            return;
-
-        // compare nearest node to others
-        var road_to_walk = nodes
-            .Where(node => node != left_behind)
-            .OrderBy(node => Vector2.Distance(node.transform.position, closestNode.transform.position))
-            .Take(5)
-            .Select(node => (Vector2)node.transform.position)
-            .Where(where_node => !Trapped_behind((Vector2)self.transform.position, where_node));
-    
-
-        Debug.DrawLine(self.transform.position, closestNode.transform.position, Color.red);
-        next_steps = new Queue<Vector2>(road_to_walk);
-        //mizuki....
+        self = this.transform;
+        speed *= Time.fixedDeltaTime;
     }
 
     private void FixedUpdate(){
-        if(!walking && next_steps.Count > 0){
-            StartCoroutine(Path_of_thorns());
-        }
-        else if(!walking && next_steps.Count == 0){
-            StartCoroutine(Thinking_about_life_choices());
+        if(!pushing_trough == true){
+            StartCoroutine(path_of_thorns());
         }
     }
-    //mizuki...
-    private IEnumerator Path_of_thorns(){
-         walking = true;
 
-        while (next_steps.Count > 0){
-            Vector2 target = next_steps.Dequeue();
+    private IEnumerator path_of_thorns(){
+        //setup path
 
-            // Move towards the target position
-            while (Vector2.Distance(self.transform.position, target) > 0.5f){
-                // if (Theres_a_Wall(direction)){
-                //     direction = New_direction();
-                // }
-                // else{
-                    direction = (target - (Vector2)self.transform.position).normalized;
-                // }
+        pushing_trough = true;
 
-                hitbox.MovePosition(hitbox.position + direction * speed * Time.fixedDeltaTime);
+        end_of_path = points[Random.Range(0, points.Length)].transform;
+        //final position of the transform
 
-                Debug.DrawLine(self.transform.position, target, Color.red);
+        first_step = little_things_called_hobby(self.position);
+        //start positiom
 
-                yield return new WaitForFixedUpdate();
-            }
-            left_behind = nodes.FirstOrDefault(node => Vector2.Distance(node.transform.position, target) < 0.1f);
-        }
+        List<Transform> once_in_a_dream = how_will_the_story_goes(first_step, end_of_path);
+        //find nodes in between start and end
 
-        walking = false;
-    }
+        foreach(Transform vision in once_in_a_dream){
+            while(Vector2.Distance(self.position, vision.position) > 0.2f){
+                self.position = Vector2.MoveTowards(self.position, vision.position, Time.fixedDeltaTime * speed);
+                yield return null;
+                //move to each node
 
-    private IEnumerator Thinking_about_life_choices(){
-        thinking = true;
-        yield return new WaitForSecondsRealtime(Random.Range(2f,4f));
-        thinking = false;
-        Path();
-    }
-
-    private bool Trapped_behind(Vector2 start, Vector2 end){
-        Vector2 direction = (end - start).normalized;
-        float distance = Vector2.Distance(start, end);
-        
-        Debug.DrawLine(start, end, Color.red);
-
-        // i cast magic line to find nodes
-        RaycastHit2D hit = Physics2D.Raycast(start, direction, distance, wall);
-
-        return hit.collider != null; 
-        //dang theres a wall
-    }
-
-    private bool Theres_a_Wall(Vector2 direction){
-        // Calculate the position to check
-        Vector2 checkPosition = (Vector2)transform.position + direction * checkDistance;
-
-        // Check for a wall using OverlapCircle
-        Collider2D collider = Physics2D.OverlapCircle(checkPosition, checkRadius, wall);
-        return collider != null; // Return true if there's a wall
-    }
-    private Vector2 New_direction(){
-        // Try a random direction until a clear path is found
-        for (int i = 0; i < directions.Length; i++){
-            Vector2 newDirection = directions[Random.Range(0, directions.Length)];
-            if (!Theres_a_Wall(newDirection)){
-                return newDirection;
             }
         }
 
-        // If no clear direction is found, stop moving (rare fallback case)
-        return Vector2.zero;
+        pushing_trough = false;
     }
 
-    private void OnDrawGizmos(){
-        Gizmos.color = Color.red;
-        if (nodes != null){
-            foreach (GameObject node in nodes){
-                Gizmos.DrawWireSphere(node.transform.position, 0.2f);
+    private Transform little_things_called_hobby(Vector2 something_dear){
+        //find the nearest node from self
+
+        Transform reachable = null;
+        float near = float.MaxValue;
+
+        foreach(GameObject point in points){
+            float distance = Vector2.Distance(something_dear, point.transform.position);
+            if(distance < near){
+                near = distance;
+                reachable = point.transform;
             }
         }
 
-        foreach (Vector2 direction in directions){
-            Vector2 checkPosition = (Vector2)transform.position + direction * checkDistance;
-            Gizmos.DrawWireSphere(checkPosition, checkRadius);
+        return reachable;
+    }
+
+    private List<Transform> how_will_the_story_goes(Transform first_page, Transform ending){
+        //find nodes in between start and end
+
+        List<Transform> pages = new List<Transform>();
+        Transform current_page = first_page;
+
+        while(current_page != ending){
+            pages.Add(current_page);
+            Transform future = unwavering_steps(current_page.position, pages);
+            //find nodes that isnt already in list
+
+            if(future == null){
+                Debug.LogWarning("i should just give up");
+                break;
+            }
+            current_page = future;
         }
 
-        if (next_steps != null && next_steps.Count > 0){
-            Gizmos.color = Color.green;
-            foreach (Vector2 position in next_steps){
-                Gizmos.DrawWireSphere(position, 0.3f);
+        pages.Add(ending);
+        return pages;
+
+    }
+
+    private Transform unwavering_steps(Vector2 fear_of_change, List<Transform> stuck_in_a_loop){
+        //find nodes that isnt in the list from function above
+
+        Transform reachable = null;
+        float near = float.MaxValue;
+
+        foreach(GameObject point in points){
+            Transform tomorrow = point.transform;
+            if(stuck_in_a_loop.Contains(tomorrow)) continue;
+            //ignore if already in list
+
+            if(uncertain_future(fear_of_change, tomorrow.position)) continue;
+            //ignore if behind wall
+
+            float distance = Vector2.Distance(fear_of_change, tomorrow.position);
+            if(distance < near){
+                near = distance;
+                reachable = point.transform;
             }
         }
+        return reachable;
+    }
+
+    private bool uncertain_future(Vector2 past, Vector2 present){
+        //does inbetween node a and node b, a wall?
+
+        Vector2 look_back = (present - past).normalized;
+        float void_in_between = Vector2.Distance(past, present);
+        if(Physics.Raycast(past, look_back, void_in_between)){
+            return true;
+        }
+        return false;
     }
 }
