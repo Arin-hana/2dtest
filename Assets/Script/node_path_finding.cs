@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using Unity.VisualScripting;
 using UnityEditor;
 using UnityEngine;
 
@@ -14,6 +15,10 @@ public class node_path_finding : MonoBehaviour
     private void Start(){
         points = GameObject.FindGameObjectsWithTag("node");
         //get any gameobject that have the tag node
+        if(points.Length == 0){
+            Debug.LogError("no nodes found");
+            return;
+        }
 
         self = this.transform;
         speed *= Time.fixedDeltaTime;
@@ -32,9 +37,17 @@ public class node_path_finding : MonoBehaviour
 
         end_of_path = points[Random.Range(0, points.Length)].transform;
         //final position of the transform
+        end_of_path.gameObject.GetComponent<Renderer>().material.color = new Color(0,0,0);
+        if(points.Length == 0) yield break;
 
         first_step = little_things_called_hobby(self.position);
-        //start positiom
+        //start position
+        first_step.gameObject.GetComponent<Renderer>().material.color = new Color(255,0,0);
+        if(first_step == null){
+            Debug.LogError("no nodes that is reachable");
+            pushing_trough = false;
+            yield break;
+        }
 
         List<Transform> once_in_a_dream = how_will_the_story_goes(first_step, end_of_path);
         //find nodes in between start and end
@@ -44,10 +57,11 @@ public class node_path_finding : MonoBehaviour
                 self.position = Vector2.MoveTowards(self.position, vision.position, Time.fixedDeltaTime * speed);
                 yield return null;
                 //move to each node
-
             }
-        }
-
+            vision.gameObject.GetComponent<Renderer>().material.color = new Color(255,255,255);
+        } 
+        end_of_path.gameObject.GetComponent<Renderer>().material.color = new Color(255,255,255);
+        first_step.gameObject.GetComponent<Renderer>().material.color = new Color(255,255,255);
         pushing_trough = false;
     }
 
@@ -58,7 +72,12 @@ public class node_path_finding : MonoBehaviour
         float near = float.MaxValue;
 
         foreach(GameObject point in points){
+
             float distance = Vector2.Distance(something_dear, point.transform.position);
+
+            if(uncertain_future(something_dear, point.transform.position)) continue;
+            //ignore if behind wall
+
             if(distance < near){
                 near = distance;
                 reachable = point.transform;
@@ -84,6 +103,7 @@ public class node_path_finding : MonoBehaviour
                 break;
             }
             current_page = future;
+            current_page.gameObject.GetComponent<Renderer>().material.color = new Color(0,255,0);
         }
 
         pages.Add(ending);
@@ -99,13 +119,16 @@ public class node_path_finding : MonoBehaviour
 
         foreach(GameObject point in points){
             Transform tomorrow = point.transform;
+
             if(stuck_in_a_loop.Contains(tomorrow)) continue;
             //ignore if already in list
-
+            
             if(uncertain_future(fear_of_change, tomorrow.position)) continue;
             //ignore if behind wall
 
             float distance = Vector2.Distance(fear_of_change, tomorrow.position);
+
+
             if(distance < near){
                 near = distance;
                 reachable = point.transform;
@@ -117,10 +140,12 @@ public class node_path_finding : MonoBehaviour
     private bool uncertain_future(Vector2 past, Vector2 present){
         //does inbetween node a and node b, a wall?
 
-        Vector2 look_back = (present - past).normalized;
-        float void_in_between = Vector2.Distance(past, present);
-        if(Physics.Raycast(past, look_back, void_in_between)){
-            return true;
+        RaycastHit2D hit = Physics2D.Linecast(past, present);
+        if(hit){
+            // Debug.Log(hit.collider.gameObject.name);
+            if(hit.collider.gameObject.name == "wall"){
+                return true;
+            }
         }
         return false;
     }
