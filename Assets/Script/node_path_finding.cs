@@ -1,152 +1,228 @@
 using System.Collections;
 using System.Collections.Generic;
-using Unity.VisualScripting;
-using UnityEditor;
 using UnityEngine;
+
+//WARNING it has the tendency of camping and absolutely bricking it self
+//please help
+//fix needed
+
+/*
+=========================================================
+
+NODE PATH FINDING, by me ArinHana
+
+in essence it create list of gameobjects, then use their position for transform to walk to
+it does this by using raycast to find gameobjects
+its fine if transform cant get to end_point because itll just make a new list
+
+*/
 
 public class node_path_finding : MonoBehaviour
 {
     private GameObject[] points;
+    private GameObject wall;
+    private GameObject cameral_wall; //somehow i didnt think itll hit it
     private Transform self;
-    private Transform end_of_path;
-    private Transform first_step;
+    private GameObject end_point;
     private float speed = 50f;
-    bool pushing_trough = false;
+    bool walking_now = false;
+    List<GameObject> items;
     private void Start(){
         points = GameObject.FindGameObjectsWithTag("node");
         //get any gameobject that have the tag node
         if(points.Length == 0){
-            Debug.LogError("no nodes found");
+            Debug.LogWarning("no nodes found, please put 'node' tag on nodes gameobject");
             return;
         }
 
         self = this.transform;
+        items = new List<GameObject>();
+        wall = GameObject.FindGameObjectWithTag("wall normal");
+        cameral_wall = GameObject.FindGameObjectWithTag("wall for camera");
         speed *= Time.fixedDeltaTime;
+        //change the speed from the private float
     }
 
     private void FixedUpdate(){
-        if(!pushing_trough == true){
-            StartCoroutine(path_of_thorns());
+        if(!walking_now){
+            StartCoroutine(Walking());
         }
     }
 
-    private IEnumerator path_of_thorns(){
-        //setup path
+    private IEnumerator Walking(){
+        walking_now = true;
 
-        pushing_trough = true;
+        end_point = points[Random.Range(0,points.Length)];
+        //pick random node
 
-        end_of_path = points[Random.Range(0, points.Length)].transform;
-        //final position of the transform
-        end_of_path.gameObject.GetComponent<Renderer>().material.color = new Color(0,0,0);
-        if(points.Length == 0) yield break;
+        end_point.GetComponent<Renderer>().material.color = new Color(0,0,0);
+        //DEBUG color the node to bunny girl (black)
+        // Debug.LogWarning(end_point.name);
+        
+        List<GameObject> steps = approximate_end_point_direction();
+        foreach(GameObject step in steps){
+            //go to each gameobject position
+            // Debug.Log(step.name);
 
-        first_step = little_things_called_hobby(self.position);
-        //start position
-        first_step.gameObject.GetComponent<Renderer>().material.color = new Color(255,0,0);
-        if(first_step == null){
-            Debug.LogError("no nodes that is reachable");
-            pushing_trough = false;
-            yield break;
-        }
-
-        List<Transform> once_in_a_dream = how_will_the_story_goes(first_step, end_of_path);
-        //find nodes in between start and end
-
-        foreach(Transform vision in once_in_a_dream){
-            while(Vector2.Distance(self.position, vision.position) > 0.2f){
-                self.position = Vector2.MoveTowards(self.position, vision.position, Time.fixedDeltaTime * speed);
+            while(Vector2.Distance(self.position, step.transform.position) > 0.2f){
+                self.position = Vector2.MoveTowards(self.position, step.transform.position, Time.fixedDeltaTime * speed); 
                 yield return null;
-                //move to each node
-            }
-            vision.gameObject.GetComponent<Renderer>().material.color = new Color(255,255,255);
+            } 
         } 
-        end_of_path.gameObject.GetComponent<Renderer>().material.color = new Color(255,255,255);
-        first_step.gameObject.GetComponent<Renderer>().material.color = new Color(255,255,255);
-        pushing_trough = false;
-    }
-
-    private Transform little_things_called_hobby(Vector2 something_dear){
-        //find the nearest node from self
-
-        Transform reachable = null;
-        float near = float.MaxValue;
-
-        foreach(GameObject point in points){
-
-            float distance = Vector2.Distance(something_dear, point.transform.position);
-
-            if(uncertain_future(something_dear, point.transform.position)) continue;
-            //ignore if behind wall
-
-            if(distance < near){
-                near = distance;
-                reachable = point.transform;
-            }
-        }
-
-        return reachable;
-    }
-
-    private List<Transform> how_will_the_story_goes(Transform first_page, Transform ending){
-        //find nodes in between start and end
-
-        List<Transform> pages = new List<Transform>();
-        Transform current_page = first_page;
-
-        while(current_page != ending){
-            pages.Add(current_page);
-            Transform future = unwavering_steps(current_page.position, pages);
-            //find nodes that isnt already in list
-
-            if(future == null){
-                Debug.LogWarning("i should just give up");
-                break;
-            }
-            current_page = future;
-            current_page.gameObject.GetComponent<Renderer>().material.color = new Color(0,255,0);
-        }
-
-        pages.Add(ending);
-        return pages;
-
-    }
-
-    private Transform unwavering_steps(Vector2 fear_of_change, List<Transform> stuck_in_a_loop){
-        //find nodes that isnt in the list from function above
-
-        Transform reachable = null;
-        float near = float.MaxValue;
-
-        foreach(GameObject point in points){
-            Transform tomorrow = point.transform;
-
-            if(stuck_in_a_loop.Contains(tomorrow)) continue;
-            //ignore if already in list
             
-            if(uncertain_future(fear_of_change, tomorrow.position)) continue;
-            //ignore if behind wall
+        end_point.GetComponent<Renderer>().material.color = new Color(255,255,255);
+        //DEBUG reset color after `self` reach `end_point`
 
-            float distance = Vector2.Distance(fear_of_change, tomorrow.position);
-
-
-            if(distance < near){
-                near = distance;
-                reachable = point.transform;
-            }
-        }
-        return reachable;
+        walking_now = false;  
     }
 
-    private bool uncertain_future(Vector2 past, Vector2 present){
-        //does inbetween node a and node b, a wall?
+    private List<GameObject> approximate_end_point_direction(){
+        GameObject current = self.gameObject;
+        GameObject end = end_point;
+        RaycastHit2D hit;
+        
+        Vector2 vec2_true_direction = (end.transform.position - current.transform.position).normalized;
+        //the direction from end to current
 
-        RaycastHit2D hit = Physics2D.Linecast(past, present);
-        if(hit){
-            // Debug.Log(hit.collider.gameObject.name);
-            if(hit.collider.gameObject.name == "wall"){
-                return true;
+        Vector2 rounded = new Vector2(Mathf.Round(vec2_true_direction.x), Mathf.Round(vec2_true_direction.y));
+        //rounded direction for 8 way move
+
+        Vector2[] rounded_split = new Vector2[]{
+            new(rounded.x, 0),
+            new(0, rounded.y)
+        };
+        //if theres a wall in rounded
+
+        Vector2[] directions = new Vector2[]{
+            new Vector2(1,0),
+            new Vector2(1,1),
+            new Vector2(0,1),
+            new Vector2(-1,1),
+            new Vector2(-1,0),
+            new Vector2(-1,-1),
+            new Vector2(0,-1),
+            new Vector2(1,-1)
+        };
+        //if theres a wall in split
+
+        items.Clear();
+        items.Add(current);
+        if(end_point != null || self != null){
+
+            while(!GameObject.ReferenceEquals(current, end)){
+                //using == doesnt work
+                //RefrenceEquals, as the name suggest, does a is the same as b
+
+                // Debug.LogWarning("current "+current.name);
+                // Debug.Log("true direction "+vec2_true_direction);
+                // Debug.Log("rounded "+rounded);
+
+                hit = Physics2D.Raycast(current.transform.position, rounded);
+
+                if(GameObject.ReferenceEquals(hit.collider.gameObject, end)){
+                    current = hit.collider.gameObject;
+                    // Debug.LogWarning("refrence==end "+current);
+
+                    vec2_true_direction = (end.transform.position - current.transform.position).normalized;
+
+                    rounded = new Vector2(Mathf.Round(vec2_true_direction.x), Mathf.Round(vec2_true_direction.y));
+                    
+                    rounded_split = new Vector2[]{
+                        new(rounded.x, 0),
+                        new(0, rounded.y)
+                    };
+                    //too lazy
+
+                    items.Add(current);
+                    break;
+                }
+                if(!GameObject.ReferenceEquals(hit.collider.gameObject, wall) || GameObject.ReferenceEquals(hit.collider.gameObject, cameral_wall)){
+                    current = hit.collider.gameObject;
+                    // Debug.LogWarning("refrence!=wall "+current);
+
+                    
+                    vec2_true_direction = (end.transform.position - current.transform.position).normalized;
+
+                    rounded = new Vector2(Mathf.Round(vec2_true_direction.x), Mathf.Round(vec2_true_direction.y));
+
+                    rounded_split = new Vector2[]{
+                        new(rounded.x, 0),
+                        new(0, rounded.y)
+                    };
+
+                    items.Add(current);
+                }
+                if(GameObject.ReferenceEquals(hit.collider.gameObject, wall) || GameObject.ReferenceEquals(hit.collider.gameObject, cameral_wall)){
+                    foreach(var splt in rounded_split){
+                        if(splt == Vector2.zero)continue;
+
+                        hit = Physics2D.Raycast(current.transform.position, splt);
+                        
+                        if(GameObject.ReferenceEquals(hit.collider.gameObject, wall) || GameObject.ReferenceEquals(hit.collider.gameObject, cameral_wall)) continue;
+
+                        if(!GameObject.ReferenceEquals(hit.collider.gameObject, wall) || GameObject.ReferenceEquals(hit.collider.gameObject, cameral_wall)){
+                            current = hit.collider.gameObject;
+                            // Debug.Log("split dir "+splt);
+                            // Debug.LogWarning("refrence==wall split "+current);
+
+                            
+                            vec2_true_direction = (end.transform.position - current.transform.position).normalized;
+
+                            rounded = new Vector2(Mathf.Round(vec2_true_direction.x), Mathf.Round(vec2_true_direction.y));
+
+                            rounded_split = new Vector2[]{
+                                new(rounded.x, 0),
+                                new(0, rounded.y)
+                            };
+
+                            items.Add(current);
+                            break;
+                        }
+
+                    }
+
+                    
+                    foreach(var dir in directions){
+                        if(dir == Vector2.zero)continue;
+
+                        hit = Physics2D.Raycast(current.transform.position, dir);
+
+                        if(GameObject.ReferenceEquals(hit.collider.gameObject, wall) || GameObject.ReferenceEquals(hit.collider.gameObject, cameral_wall)) continue;
+                        
+                        if(items.Contains(hit.collider.gameObject)) continue;
+
+                        if(!GameObject.ReferenceEquals(hit.collider.gameObject, wall) || GameObject.ReferenceEquals(hit.collider.gameObject, cameral_wall)){
+                            current = hit.collider.gameObject;
+                            // Debug.Log("dir "+dir);
+                            // Debug.LogWarning("refrence==wall dir "+current);
+
+                            
+                            vec2_true_direction = (end.transform.position - current.transform.position).normalized;
+
+                            rounded = new Vector2(Mathf.Round(vec2_true_direction.x), Mathf.Round(vec2_true_direction.y));
+
+                            rounded_split = new Vector2[]{
+                                new(rounded.x, 0),
+                                new(0, rounded.y)
+                            };
+
+                            items.Add(current);
+                            break;
+                        }
+
+                    }
+                    // continue;
+                    
+                }
+                else{
+                    Debug.LogWarning("cant find end_point");
+                    break;
+                }
+
             }
+
         }
-        return false;
+        return items;
     }
+
 }

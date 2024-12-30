@@ -9,6 +9,7 @@ TagManager:
   - scene_manager
   - wall for camera
   - node
+  - wall normal
   layers:
   - Default
   - TransparentFX
